@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YA Anime - منصة مشاهدة الأنمي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --theme-primary: #e11d48;
+            --theme-hover: #f43f5e;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #0b0e14;
+            color: #ffffff;
+        }
+        /* تخصيص شريط التمرير */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0b0e14; }
+        ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--theme-primary); }
+
+        /* تخصيص مؤشر شريط التقدم */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--theme-primary);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.3);
+        }
+
+        .theme-bg { background-color: var(--theme-primary) !important; }
+        .theme-text { color: var(--theme-primary) !important; }
+        .theme-border { border-color: var(--theme-primary) !important; }
+
+        /* تأثير إضاءة النيون الخاصة بالمنتسبين المميزين */
+        .vip-glow {
+            box-shadow: 0 0 25px rgba(234, 179, 8, 0.4), inset 0 0 15px rgba(234, 179, 8, 0.2);
+            border: 2px solid #eab308 !important;
+        }
+        .vip-badge {
+            background: linear-gradient(135deg, #eab308, #ca8a04);
+            color: #000;
+            animation: pulseGlow 2s infinite;
+        }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 5px #eab308; }
+            50% { box-shadow: 0 0 15px #eab308; }
+            100% { box-shadow: 0 0 5px #eab308; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- الشريط العلوي (Navbar) -->
+    <header class="bg-[#111622]/95 backdrop-blur-md border-b border-gray-800 sticky top-0 z-40">
+        <div class="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="resetHome()">
+                <div class="w-10 h-10 theme-bg rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-rose-600/30 text-white">YA</div>
+                <h1 class="text-2xl font-black tracking-wide bg-gradient-to-l from-rose-500 to-amber-400 bg-clip-text text-transparent">YA Anime</h1>
+            </div>
+
+            <!-- شريط البحث -->
+            <div class="flex-1 max-w-md mx-2">
+                <input type="text" id="searchInput" oninput="renderAnime()" placeholder="ابحث عن أنمي..." 
+                       class="w-full bg-[#1a2234] text-white placeholder-gray-400 px-4 py-2 rounded-xl border border-gray-700 focus:outline-none focus:border-rose-500 text-sm">
+            </div>
+
+            <!-- أزرار الإجراءات والثيم والانتساب -->
+            <div class="flex items-center gap-2">
+                <!-- مبدل الثيمات السريع -->
+                <select id="themeSelector" onchange="changeTheme(this.value)" class="bg-[#1a2234] text-gray-300 border border-gray-700 text-xs rounded-xl px-2.5 py-2 outline-none cursor-pointer">
+                    <option value="#e11d48">🎨 أحمر كلاسيكي</option>
+                    <option value="#2563eb">🎨 أزرق ملكي</option>
+                    <option value="#16a34a">🎨 أخضر زمردي</option>
+                    <option value="#9333ea">🎨 بنفسجي نيون</option>
+                </select>
+
+                <button onclick="setFilter('all')" id="btnAll" class="px-3 py-2 rounded-xl text-sm font-semibold theme-bg text-white transition">الكل</button>
+                <button onclick="setFilter('fav')" id="btnFav" class="px-3 py-2 rounded-xl text-sm font-semibold bg-[#1a2234] text-gray-300 hover:bg-gray-800 transition flex items-center gap-1">
+                    <span>المفضلة</span>
+                    <span id="favCount" class="theme-bg text-white text-xs px-1.5 py-0.5 rounded-full">0</span>
+                </button>
+                <button onclick="openAddModal()" class="px-3 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-lg shadow-emerald-600/20">
+                    + إضافة
+                </button>
+
+                <!-- زر الانتساب / الحساب -->
+                <div id="authSection">
+                    <button onclick="openAuthModal()" id="authBtn" class="px-4 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-black transition flex items-center gap-1 shadow-lg shadow-amber-500/20">
+                        ⭐ انتسب الآن
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- منطقة المشغل وتفاصيل الحلقة -->
+    <section id="playerSection" class="hidden container mx-auto px-4 pt-6">
+        <div id="playerContainerCard" class="bg-[#111622] rounded-2xl border border-gray-800 p-4 shadow-2xl transition-all duration-300">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h2 id="nowPlayingTitle" class="text-lg font-bold text-rose-400 theme-text">عنوان الأنمي</h2>
+                    <p id="nowPlayingEp" class="text-sm text-gray-400">الحلقة 1</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="resumeNotice" class="hidden text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg">تم استئناف التشغيل من آخر نقطة</span>
+                    <button onclick="closePlayer()" class="bg-gray-800 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-sm transition">إغلاق المشغل ✕</button>
+                </div>
+            </div>
+
+            <!-- حاوية الفيديو المدمجة -->
+            <div id="playerWrapper" class="video-container relative group bg-black w-full aspect-video rounded-xl overflow-hidden shadow-lg select-none">
+                
+                <!-- مشغل الفيديو المباشر (MP4 / M3U8) -->
+                <video id="videoPlayer" class="w-full h-full object-contain cursor-pointer" playsinline></video>
+
+                <!-- مشغل Iframe (لروابط Google Drive أو السيرفرات الخارجية) -->
+                <iframe id="iframePlayer" class="hidden w-full h-full border-0" allowfullscreen allow="autoplay"></iframe>
+
+                <!-- شريط التحكم السفلي المدمج (منسق بالكامل بشكل مستقيم في مكان واحد) -->
+                <div id="videoControls" dir="ltr" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/80 to-transparent pt-8 pb-3 px-4 flex flex-col gap-2.5 transition-opacity duration-300 opacity-100">
+                    
+                    <!-- 1. شريط التقدم وزر الوقت المستقيم -->
+                    <div class="w-full flex items-center cursor-pointer">
+                        <input type="range" id="progressBar" value="0" min="0" max="100" step="0.1" 
+                               class="w-full h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer hover:h-2 transition-all">
+                    </div>
+
+                    <!-- 2. أزرار التحكم منسقة بجانب بعضها البعض بشكل جميل ومستقيم -->
+                    <div class="flex items-center justify-between text-white text-sm">
+                        <!-- الجانب الأيسر: تشغيل، رجوع 10ث، تقديم 10ث، الوقت -->
+                        <div class="flex items-center gap-3 sm:gap-4">
+                            <!-- تشغيل / إيقاف -->
+                            <button id="playPauseBtn" class="hover:text-rose-500 transition focus:outline-none" title="تشغيل / إيقاف">
+                                <svg id="playIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </button>
+
+                            <!-- ترجيع 10 ثواني -->
+                            <button id="rewindBtn" class="hover:text-rose-500 transition focus:outline-none" title="رجوع 10 ثواني">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"/></svg>
+                            </button>
+
+                            <!-- تقديم 10 ثواني -->
+                            <button id="forwardBtn" class="hover:text-rose-500 transition focus:outline-none" title="تقدم 10 ثواني">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 005 8v8a1 1 0 001.6.8l5.334-4zM19.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.334-4z"/></svg>
+                            </button>
+
+                            <!-- عداد الوقت المنقضي والكلي -->
+                            <span id="timeDisplay" class="text-xs font-mono text-gray-300">00:00 / 00:00</span>
+                        </div>
+
+                        <!-- الجانب الأيمن: التحكم بالصوت وزر تكبير الشاشة -->
+                        <div class="flex items-center gap-3">
+                            <!-- كتم الصوت -->
+                            <button id="muteBtn" class="hover:text-rose-500 transition focus:outline-none" title="كتم الصوت">
+                                <svg id="volIcon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                            </button>
+                            <!-- شريط الصوت -->
+                            <input type="range" id="volumeBar" min="0" max="1" step="0.05" value="1" class="w-16 sm:w-20 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer">
+
+                            <!-- زر تكبير الشاشة (ملء الشاشة) -->
+                            <button id="fullscreenBtn" class="hover:text-rose-500 transition focus:outline-none ml-1" title="تكبير / ملء الشاشة">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l-5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- قائمة الحلقات الحالية -->
+            <div class="mt-4">
+                <h3 class="text-sm font-bold text-gray-300 mb-2">الحلقات المتوفرة:</h3>
+                <div id="episodesList" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- قسم التعليقات التفاعلية المحلية لكل حلقة -->
+            <div class="mt-6 border-t border-gray-800 pt-4">
+                <h3 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                    <span>💬 تعليقات الحلقات</span>
+                    <span id="commentsCount" class="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">0</span>
+                </h3>
+                <div class="flex gap-2 mb-3">
+                    <input type="text" id="commentInput" placeholder="اكتب رأيك عن الحلقة..." class="flex-1 bg-[#1a2234] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-rose-500">
+                    <button onclick="addComment()" class="theme-bg hover:opacity-90 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow">إرسال</button>
+                </div>
+                <div id="commentsList" class="space-y-2 max-h-40 overflow-y-auto pr-1"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- شبكة عرض الأنميات -->
+    <main class="container mx-auto px-4 py-8 flex-1">
+        <div id="animeGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5"></div>
+    </main>
+
+    <!-- نافذة تسجيل الانتساب / الحساب -->
+    <div id="authModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[#111622] border border-amber-500/50 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-amber-400 flex items-center gap-2">⭐ انتساب VIP للموقع</h3>
+                <button onclick="closeAuthModal()" class="text-gray-400 hover:text-white text-xl">✕</button>
+            </div>
+            <p class="text-xs text-gray-300 mb-4">انضم إلى قائمة المنتسبين المميزين لتحصل على إضاءة ذهبية فريدة وتمييز خاص داخل المنصة!</p>
+            <form onsubmit="handleAuth(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">اسم المنتسب (أو اسم المستخدم)</label>
+                    <input type="text" id="authUsername" required placeholder="أدخل اسمك..." class="w-full bg-[#1a2234] border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:border-amber-500 outline-none">
+                </div>
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-2.5 rounded-xl transition mt-2 shadow-lg shadow-amber-500/20">تفعيل حساب الانتساب</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة أنمي أو حلقة جديدة -->
+    <div id="addModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[#111622] border border-gray-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white">إضافة محتوى جديد</h3>
+                <button onclick="closeAddModal()" class="text-gray-400 hover:text-white text-xl">✕</button>
+            </div>
+
+            <!-- التبويبات -->
+            <div class="flex gap-2 mb-4 bg-[#1a2234] p-1 rounded-xl">
+                <button onclick="switchTab('newAnime')" id="tabNewAnime" class="flex-1 py-2 rounded-lg text-sm font-bold theme-bg text-white transition">أنمي جديد</button>
+                <button onclick="switchTab('addEp')" id="tabAddEp" class="flex-1 py-2 rounded-lg text-sm font-bold text-gray-400 hover:text-white transition">إضافة حلقة</button>
+            </div>
+
+            <!-- نموذج إضافة أنمي جديد -->
+            <form id="formNewAnime" onsubmit="handleAddAnime(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">اسم الأنمي</label>
+                    <input type="text" id="newAnimeTitle" required class="w-full bg-[#1a2234] border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:border-rose-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">رابط البوستر (صورة مباشرة أو رابط Google Drive)</label>
+                    <input type="url" id="newAnimePoster" required placeholder="https://..." class="w-full bg-[#1a2234] border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:border-rose-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">التصنيف</label>
+                    <input type="text" id="newAnimeGenre" placeholder="أكشن، مغامرات..." class="w-full bg-[#1a2234] border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:border-rose-500 outline-none">
+                </div>
+                <button type="submit" class="w-full theme-bg hover:opacity-90 text-white font-bold py-2.5 rounded-xl transition mt-2">حفظ الأنمي</button>
+            </form>
+
+            <!-- نموذج إضافة حلقة لأنمي موجود -->
+            <form id="formAddEp" onsubmit="handleAddEpisode(event)" class="hidden space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">اختر الأنمي</label>
+                    <select id="selectAnimeForEp" required class="w-full bg-[#1a2234] border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:border-rose-500 outline-none"></select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">رقم أو عنوان الحلقة</label>
+                    <input type="text" id="newEpTitle" required placeholder="الحلقة 1" class="w-full bg-[#1a2234] border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:border-rose-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">رابط الفيديو (MP4 / M3U8 / Google Drive)</label>
+                    <input type="url" id="newEpUrl" required placeholder="https://..." class="w-full bg-[#1a2234] border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:border-rose-500 outline-none">
+                </div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition mt-2">إضافة الحلقة</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // البيانات الافتراضية ( Bleach + الأنميات الأخرى )
+        const defaultAnime = [
+            {
+                id: 1,
+                title: "Bleach",
+                genre: "أكشن • خارق للطبيعة • شونين",
+                poster: "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80",
+                episodes: [
+                    { title: "الحلقة 1", url: "https://drive.google.com/file/d/12fXQ5Nzz0E_vS4brKX86oRhi0BqjL4Rp/view?usp=drivesdk" },
+                    { title: "الحلقة 2", url: "https://drive.google.com/file/d/1q5Xrd9T0h0vzv_CJr4rxK-IjusgWHUuZ/view?usp=drivesdk" },
+                    { title: "الحلقة 3", url: "https://drive.google.com/file/d/16H1ff70twTF2F7lFocVWxWYscxg7HyyA/view?usp=drivesdk" },
+                    { title: "الحلقة 4", url: "https://drive.google.com/file/d/13AUcuKIrTIHBaGHnK6aelZjqT8QtF4-G/view?usp=drivesdk" },
+                    { title: "الحلقة 5", url: "https://drive.google.com/file/d/1YTvueG32fovo-qT4zt3_R22BRMW1maDp/view?usp=drivesdk" },
+                    { title: "الحلقة 6", url: "https://drive.google.com/file/d/185cgemGb5f3Dz5wRjcjMEf3dOlhqnLyu/view?usp=drivesdk" },
+                    { title: "الحلقة 7", url: "https://drive.google.com/file/d/1r6wPDXzpC7FVnte7_j-Aob7iB9CnZMOZ/view?usp=drivesdk" },
+                    { title: "الحلقة 8", url: "https://drive.google.com/file/d/1EFUuWAF94m6KDXWwL8rDXXsOS8g9EeTE/view?usp=drivesdk" },
+                    { title: "الحلقة 9", url: "https://drive.google.com/file/d/14Zy2YxhfXI28kHGbAifQ77nLj1MQFuou/view?usp=drivesdk" },
+                    { title: "الحلقة 10", url: "https://drive.google.com/file/d/1e_3UTetEsrQaovwatFMO0yJB8FS95hN4/view?usp=drivesdk" }
+                ]
+            },
+            {
+                id: 2,
+                title: "One Piece",
+                genre: "أكشن • مغامرات",
+                poster: "https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=600&q=80",
+                episodes: [
+                    { title: "الحلقة 1 (تجريبي HLS)", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" }
+                ]
+            }
+        ];
+
+        let animeList = JSON.parse(localStorage.getItem('animePlusData')) || defaultAnime;
+        let favorites = JSON.parse(localStorage.getItem('animePlusFavs')) || [];
+        let currentUser = localStorage.getItem('animePlusUser') || null;
+        let watchHistory = JSON.parse(localStorage.getItem('animePlusHistory')) || {};
+        let commentsData = JSON.parse(localStorage.getItem('animePlusComments')) || {};
+        let currentTheme = localStorage.getItem('animePlusTheme') || '#e11d48';
+        let currentFilter = 'all';
+        let searchQuery = '';
+        let hlsInstance = null;
+        let currentEpKey = null;
+
+        // عناصر المشغل المدمج
+        const video = document.getElementById('videoPlayer');
+        const iframe = document.getElementById('iframePlayer');
+        const videoControls = document.getElementById('videoControls');
+        const progressBar = document.getElementById('progressBar');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = document.getElementById('playIcon');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const rewindBtn = document.getElementById('rewindBtn');
+        const forwardBtn = document.getElementById('forwardBtn');
+        const volumeBar = document.getElementById('volumeBar');
+        const muteBtn = document.getElementById('muteBtn');
+        const playerWrapper = document.getElementById('playerWrapper');
+        const playerContainerCard = document.getElementById('playerContainerCard');
+
+        // تطبيق الثيم اللوني
+        function changeTheme(color) {
+            currentTheme = color;
+            localStorage.setItem('animePlusTheme', color);
+            document.documentElement.style.setProperty('--theme-primary', color);
+            document.getElementById('themeSelector').value = color;
+        }
+        changeTheme(currentTheme);
+
+        // إدارة حالة الانتساب VIP
+        function checkVipStatus() {
+            const authSection = document.getElementById('authSection');
+            if (currentUser) {
+                authSection.innerHTML = `
+                    <div class="flex items-center gap-2 bg-[#1a2234] border border-amber-500 px-3 py-1.5 rounded-xl">
+                        <span class="vip-badge text-xs font-bold px-2 py-0.5 rounded-lg">VIP</span>
+                        <span class="text-xs font-bold text-amber-400">${currentUser}</span>
+                        <button onclick="logoutUser()" class="text-gray-400 hover:text-rose-500 text-xs mr-1" title="خروج">✕</button>
+                    </div>
+                `;
+                playerContainerCard.classList.add('vip-glow');
+            } else {
+                authSection.innerHTML = `
+                    <button onclick="openAuthModal()" class="px-4 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-black transition flex items-center gap-1 shadow-lg shadow-amber-500/20">
+                        ⭐ انتسب الآن
+                    </button>
+                `;
+                playerContainerCard.classList.remove('vip-glow');
+            }
+        }
+
+        function openAuthModal() { document.getElementById('authModal').classList.remove('hidden'); }
+        function closeAuthModal() { document.getElementById('authModal').classList.add('hidden'); }
+
+        function handleAuth(e) {
+            e.preventDefault();
+            const username = document.getElementById('authUsername').value.trim();
+            if (username) {
+                currentUser = username;
+                localStorage.setItem('animePlusUser', currentUser);
+                closeAuthModal();
+                checkVipStatus();
+                alert(`أهلاً بك يا ${currentUser}! تم تفعيل حساب الانتساب وإضاءة الـ VIP بنجاح.`);
+            }
+        }
+
+        function logoutUser() {
+            localStorage.removeItem('animePlusUser');
+            currentUser = null;
+            checkVipStatus();
+        }
+
+        function formatGoogleDriveImage(url) {
+            const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+            if (url.includes('drive.google.com') && match && match[1]) {
+                return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
+            }
+            return url;
+        }
+
+        function formatGoogleDriveVideo(url) {
+            const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+            if (url.includes('drive.google.com') && match && match[1]) {
+                return `https://drive.google.com/file/d/${match[1]}/preview`;
+            }
+            return url;
+        }
+
+        // عرض شبكة الأنمي
+        function renderAnime() {
+            searchQuery = document.getElementById('searchInput').value.toLowerCase();
+            const grid = document.getElementById('animeGrid');
+            grid.innerHTML = '';
+
+            const filtered = animeList.filter(anime => {
+                const matchesSearch = anime.title.toLowerCase().includes(searchQuery);
+                const matchesFav = currentFilter === 'all' || favorites.includes(anime.id);
+                return matchesSearch && matchesFav;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center text-gray-500 py-12">لا توجد نتائج مطابقة</div>`;
+                return;
+            }
+
+            filtered.forEach(anime => {
+                const isFav = favorites.includes(anime.id);
+                const card = document.createElement('div');
+                card.className = `bg-[#111622] border border-gray-800 rounded-2xl overflow-hidden group hover:border-rose-500/50 transition shadow-lg flex flex-col ${currentUser ? 'hover:border-amber-400' : ''}`;
+                card.innerHTML = `
+                    <div class="relative aspect-[3/4] overflow-hidden cursor-pointer" onclick="openAnime(${anime.id})">
+                        <img src="${formatGoogleDriveImage(anime.poster)}" alt="${anime.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                        <div class="absolute inset-0 bg-gradient-to-t from-[#111622] via-transparent to-transparent opacity-90"></div>
+                        <button onclick="toggleFav(event, ${anime.id})" class="absolute top-3 left-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-lg hover:scale-110 transition">
+                            ${isFav ? '❤️' : '🤍'}
+                        </button>
+                        <span class="absolute bottom-3 right-3 theme-bg text-white text-xs font-bold px-2.5 py-1 rounded-lg">
+                            ${anime.episodes.length} حلقات
+                        </span>
+                    </div>
+                    <div class="p-3.5 flex-1 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-base text-white truncate cursor-pointer hover:text-rose-400" onclick="openAnime(${anime.id})">${anime.title}</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">${anime.genre || 'أنمي'}</p>
+                        </div>
+                        <button onclick="openAnime(${anime.id})" class="mt-3 w-full bg-[#1a2234] hover:opacity-90 text-white text-xs font-bold py-2 rounded-xl transition">
+                            مشاهدة الآن
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            updateFavCount();
+        }
+
+        function openAnime(id) {
+            const anime = animeList.find(a => a.id === id);
+            if (!anime) return;
+
+            const playerSection = document.getElementById('playerSection');
+            playerSection.classList.remove('hidden');
+            playerSection.scrollIntoView({ behavior: 'smooth' });
+
+            document.getElementById('nowPlayingTitle').textContent = anime.title;
+            const epList = document.getElementById('episodesList');
+            epList.innerHTML = '';
+
+            if (anime.episodes.length === 0) {
+                epList.innerHTML = `<p class="text-xs text-gray-500">لا توجد حلقات مضافة لهذا الأنمي بعد.</p>`;
+                return;
+            }
+
+            anime.episodes.forEach((ep, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "ep-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#1a2234] hover:bg-rose-600 text-white transition border border-gray-700";
+                btn.textContent = ep.title;
+                btn.onclick = () => playEpisode(anime.id, idx, ep, btn);
+                epList.appendChild(btn);
+
+                if (idx === 0) playEpisode(anime.id, idx, ep, btn);
+            });
+        }
+
+        function playEpisode(animeId, epIndex, ep, btnElement) {
+            currentEpKey = `${animeId}_${epIndex}`;
+            document.getElementById('nowPlayingEp').textContent = ep.title;
+            document.querySelectorAll('.ep-btn').forEach(b => b.classList.remove('theme-bg', 'border-rose-500'));
+            if (btnElement) btnElement.classList.add('theme-bg', 'border-rose-500');
+
+            renderComments();
+
+            if (hlsInstance) {
+                hlsInstance.destroy();
+                hlsInstance = null;
+            }
+
+            const url = ep.url.trim();
+
+            if (url.includes('drive.google.com') || (!url.endsWith('.mp4') && !url.includes('.m3u8'))) {
+                video.pause();
+                video.classList.add('hidden');
+                videoControls.classList.add('hidden');
+                iframe.classList.remove('hidden');
+                iframe.src = formatGoogleDriveVideo(url);
+                document.getElementById('resumeNotice').classList.add('hidden');
+            } else {
+                iframe.src = '';
+                iframe.classList.add('hidden');
+                video.classList.remove('hidden');
+                videoControls.classList.remove('hidden');
+
+                if (url.includes('.m3u8') && Hls.isSupported()) {
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(url);
+                    hlsInstance.attachMedia(video);
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => checkAndRestoreTime());
+                } else {
+                    video.src = url;
+                    video.onloadedmetadata = () => checkAndRestoreTime();
+                }
+            }
+        }
+
+        // استئناف المشاهدة تلقائياً من آخر نقطة تم حفظها
+        function checkAndRestoreTime() {
+            if (currentEpKey && watchHistory[currentEpKey]) {
+                const savedTime = watchHistory[currentEpKey];
+                if (savedTime > 2 && savedTime < video.duration - 5) {
+                    video.currentTime = savedTime;
+                    const notice = document.getElementById('resumeNotice');
+                    notice.classList.remove('hidden');
+                    setTimeout(() => notice.classList.add('hidden'), 4000);
+                }
+            }
+            video.play();
+        }
+
+        // --- عناصر ووظائف التحكم بالمشغل المنسقة في مكان واحد ---
+        function togglePlay() {
+            if (video.paused) { video.play(); } else { video.pause(); }
+        }
+
+        playPauseBtn.addEventListener('click', togglePlay);
+        video.addEventListener('click', togglePlay);
+
+        video.addEventListener('play', () => {
+            playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+        });
+
+        video.addEventListener('pause', () => {
+            playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+        });
+
+        video.addEventListener('timeupdate', () => {
+            if (video.duration) {
+                const percentage = (video.currentTime / video.duration) * 100;
+                progressBar.value = percentage;
+                progressBar.style.background = `linear-gradient(to right, ${currentTheme} ${percentage}%, rgba(255,255,255,0.3) ${percentage}%)`;
+                timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+
+                // حفظ وقت المشاهدة كل بضع ثواني
+                if (currentEpKey && Math.floor(video.currentTime) % 5 === 0) {
+                    watchHistory[currentEpKey] = video.currentTime;
+                    localStorage.setItem('animePlusHistory', JSON.stringify(watchHistory));
+                }
+            }
+        });
+
+        progressBar.addEventListener('input', (e) => {
+            if (video.duration) {
+                video.currentTime = (e.target.value / 100) * video.duration;
+            }
+        });
+
+        rewindBtn.addEventListener('click', () => { video.currentTime = Math.max(0, video.currentTime - 10); });
+        forwardBtn.addEventListener('click', () => { video.currentTime = Math.min(video.duration || 0, video.currentTime + 10); });
+
+        volumeBar.addEventListener('input', (e) => {
+            video.volume = e.target.value;
+            video.muted = (video.volume === 0);
+        });
+
+        muteBtn.addEventListener('click', () => {
+            video.muted = !video.muted;
+            volumeBar.value = video.muted ? 0 : video.volume;
+        });
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                if (playerWrapper.requestFullscreen) playerWrapper.requestFullscreen();
+                else if (playerWrapper.webkitRequestFullscreen) playerWrapper.webkitRequestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        });
+
+        let hideControlsTimeout;
+        playerWrapper.addEventListener('mousemove', () => {
+            videoControls.style.opacity = '1';
+            clearTimeout(hideControlsTimeout);
+            if (!video.paused) {
+                hideControlsTimeout = setTimeout(() => {
+                    videoControls.style.opacity = '0';
+                }, 3000);
+            }
+        });
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "00:00";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        function closePlayer() {
+            video.pause();
+            iframe.src = '';
+            document.getElementById('playerSection').classList.add('hidden');
+        }
+
+        // --- نظام التعليقات المحلية ---
+        function addComment() {
+            const input = document.getElementById('commentInput');
+            const text = input.value.trim();
+            if (!text || !currentEpKey) return;
+
+            const author = currentUser ? `${currentUser} (VIP)` : 'زائر';
+            if (!commentsData[currentEpKey]) commentsData[currentEpKey] = [];
+            commentsData[currentEpKey].push({ author, text, time: new Date().toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'}) });
+            
+            localStorage.setItem('animePlusComments', JSON.stringify(commentsData));
+            input.value = '';
+            renderComments();
+        }
+
+        function renderComments() {
+            const list = document.getElementById('commentsList');
+            const countBadge = document.getElementById('commentsCount');
+            list.innerHTML = '';
+
+            const epComments = (currentEpKey && commentsData[currentEpKey]) ? commentsData[currentEpKey] : [];
+            countBadge.textContent = epComments.length;
+
+            if (epComments.length === 0) {
+                list.innerHTML = `<p class="text-xs text-gray-500">لا توجد تعليقات بعد. كن أول من يعلق!</p>`;
+                return;
+            }
+
+            epComments.forEach(c => {
+                const div = document.createElement('div');
+                div.className = "bg-[#1a2234] p-2.5 rounded-xl border border-gray-800 text-xs flex flex-col gap-1";
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold ${c.includes('VIP') ? 'text-amber-400' : 'text-rose-400'}">${c.author}</span>
+                        <span class="text-[10px] text-gray-500">${c.time}</span>
+                    </div>
+                    <p class="text-gray-300">${c.text}</p>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // --- المفضلة والفلاتر ---
+        function toggleFav(event, id) {
+            event.stopPropagation();
+            if (favorites.includes(id)) {
+                favorites = favorites.filter(favId => favId !== id);
+            } else {
+                favorites.push(id);
+            }
+            localStorage.setItem('animePlusFavs', JSON.stringify(favorites));
+            renderAnime();
+        }
+
+        function updateFavCount() {
+            document.getElementById('favCount').textContent = favorites.length;
+        }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.getElementById('btnAll').className = filter === 'all' ? "px-3 py-2 rounded-xl text-sm font-semibold theme-bg text-white transition" : "px-3 py-2 rounded-xl text-sm font-semibold bg-[#1a2234] text-gray-300 hover:bg-gray-800 transition";
+            document.getElementById('btnFav').className = filter === 'fav' ? "px-3 py-2 rounded-xl text-sm font-semibold theme-bg text-white transition flex items-center gap-1" : "px-3 py-2 rounded-xl text-sm font-semibold bg-[#1a2234] text-gray-300 hover:bg-gray-800 transition flex items-center gap-1";
+            renderAnime();
+        }
+
+        function resetHome() {
+            document.getElementById('searchInput').value = '';
+            closePlayer();
+            setFilter('all');
+        }
+
+        // --- نافذة الإضافة ---
+        function openAddModal() {
+            const select = document.getElementById('selectAnimeForEp');
+            select.innerHTML = animeList.map(a => `<option value="${a.id}">${a.title}</option>`).join('');
+            document.getElementById('addModal').classList.remove('hidden');
+        }
+
+        function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); }
+
+        function switchTab(tab) {
+            const isNew = tab === 'newAnime';
+            document.getElementById('formNewAnime').classList.toggle('hidden', !isNew);
+            document.getElementById('formAddEp').classList.toggle('hidden', isNew);
+            document.getElementById('tabNewAnime').className = isNew ? "flex-1 py-2 rounded-lg text-sm font-bold theme-bg text-white transition" : "flex-1 py-2 rounded-lg text-sm font-bold text-gray-400 hover:text-white transition";
+            document.getElementById('tabAddEp').className = !isNew ? "flex-1 py-2 rounded-lg text-sm font-bold theme-bg text-white transition" : "flex-1 py-2 rounded-lg text-sm font-bold text-gray-400 hover:text-white transition";
+        }
+
+        function handleAddAnime(e) {
+            e.preventDefault();
+            const newAnime = {
+                id: Date.now(),
+                title: document.getElementById('newAnimeTitle').value,
+                poster: document.getElementById('newAnimePoster').value,
+                genre: document.getElementById('newAnimeGenre').value,
+                episodes: []
+            };
+            animeList.unshift(newAnime);
+            localStorage.setItem('animePlusData', JSON.stringify(animeList));
+            e.target.reset();
+            closeAddModal();
+            renderAnime();
+        }
+
+        function handleAddEpisode(e) {
+            e.preventDefault();
+            const animeId = Number(document.getElementById('selectAnimeForEp').value);
+            const anime = animeList.find(a => a.id === animeId);
+            if (anime) {
+                anime.episodes.push({
+                    title: document.getElementById('newEpTitle').value,
+                    url: document.getElementById('newEpUrl').value
+                });
+                localStorage.setItem('animePlusData', JSON.stringify(animeList));
+                e.target.reset();
+                closeAddModal();
+                renderAnime();
+                openAnime(animeId);
+            }
+        }
+
+        // التشغيل الأولي
+        checkVipStatus();
+        renderAnime();
+    </script>
+</body>
+</html>
